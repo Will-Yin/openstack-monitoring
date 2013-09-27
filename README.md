@@ -2,15 +2,14 @@ openstack monitoring with centreon/nagios/ndoutils/mysql
 ========================================================
 
 
-nagios nrpe config on the hosts
+##nagios nrpe config on the hosts
 
 #This is the remote host service configuration 
 
 #Base on all the hosts
 ###################################################################
 
-command[check_users]=/usr/lib/nagios/plugins/check_users -w 20 -c
-30
+command[check_users]=/usr/lib/nagios/plugins/check_users -w 20 -c 30
 command[check_load]=/usr/lib/nagios/plugins/check_load -w 15,10,5 -c 30,20,10
 command[check_zombie_procs]=/usr/lib/nagios/plugins/check_procs -w 5 -c 10 -s Z
 command[check_total_procs]=/usr/lib/nagios/plugins/check_procs -w 500 -c 800
