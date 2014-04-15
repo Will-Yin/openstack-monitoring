@@ -1,0 +1,76 @@
+#!/usr/bin/python
+"""
+**  Copyright (C) 2014  Koffi Nogbe at gmail dot com
+
+**  This program is free software: you can redistribute it and/or modify
+**  it under the terms of the GNU General Public License as published by
+**  the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+
+**  This program is distributed in the hope that it will be useful,
+**  but WITHOUT ANY WARRANTY; without even the implied warranty of
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**  GNU General Public License for more details.
+
+**  You should have received a copy of the GNU General Public License
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+**  ***********************************
+**  This program allow you to monitor openstack keystone service
+**  This is a content base monitor as oppose to just port check
+**  It pull user from keystone database and poll the time it takes to
+**  to retrieve the user. It use a config file openrc.cfg
+**  Syntax:
+**  check_glance -C/--config [config file] -/--image [image to pull] -w/--warning [warning timeout] -c/--critical [ critical timeout ]
+
+"""
+import sys
+import time
+import argparse
+import keystoneclient.v2_0.client as kclient
+import cinderclient.v2.client as cclient
+from nagioslib.nagioslib import *
+
+STATUS_OK = 0
+STATUS_WARNING = 1
+STATUS_CRITICAL = 2
+STATUS_UNKNOWN = 3
+
+defaultCFG = 'openrc.cfg'
+
+def findImage(imageLists,image):
+        """Find a specific image name from the image metadata
+        """
+        for ima in imageLists:
+                if ima.name == image:
+                        return True
+
+
+def main():
+        parser = argparse.ArgumentParser(description="check_keystone nagios plugin for OpenStack Keystone")
+        parser.add_argument("-C","--config", help="Openstack rc configuration file - default is openrc.cfg")
+        parser.add_argument("-v","--volume", help="OpenStack image to monitor", required=True)
+        parser.add_argument("-w","--warning", help="Warning time to retrieve the user", required=True)
+        parser.add_argument("-c","--critical", help="Critical time to retrieve the user", required=True)
+
+        args = parser.parse_args()
+
+        if args.config:
+                configFile = args.config
+        else:
+                configFile = defaultCFG
+
+        cred = credential(configFile)
+        startTime = time.time()
+        try:
+                ks = kclient.Client(**cred.getKeystone())
+                cin_endpt = ks.service_catalog.url_for(service_type='cinder', endpoint_type='publicURL')
+                cin = cclient.Client(cin_endpt,token=ks.auth_token)
+
+        except:
+                print "Unable to connect to OpenStack API endpoint."
+                sys.exit(STATUS_CRITICAL)
+
+if __name__ == '__main__':
+        main()
+

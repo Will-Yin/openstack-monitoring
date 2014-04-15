@@ -42,7 +42,9 @@ def findImage(imageLists,image):
 	"""Find a specific image name from the image metadata
 	"""
 	for ima in imageLists:
-		print ima
+		if ima.name == image:
+			return True
+	
 
 def main():
         parser = argparse.ArgumentParser(description="check_keystone nagios plugin for OpenStack Keystone")
@@ -68,7 +70,24 @@ def main():
         except:
                 print "Unable to connect to OpenStack API endpoint."
                 sys.exit(STATUS_CRITICAL)
-	findImage(gl.images.list(),args.image)
+	find = findImage(gl.images.list(),args.image)
+	endTime = time.time()
+	timeElapse = endTime - startTime
+	if find:
+                if timeElapse < float(args.warning):
+                        print "OpenStack Glance OK! Glance Image name %s retrieval successfull. Time taken for retrieval %s | Image Name Retrieval Time=%s" % (args.image,round(timeElapse,3),round(timeElapse,3))
+                        sys.exit(STATUS_OK)
+                elif (timeElapse >= float(args.warning)) and (timeElapse < float(args.critical)):
+                        print "OpenStack Glance Warning! Glance Image name %s retrieval successfull but time taken was longer. Time taken for retrieval %s | Glance Image Name Retrieval Time=%s" % (args.image,round(timeElapse,3),round(timeElapse,3))
+                        sys.exit(STATUS_WARNING)
+                elif timeElapse >= float(args.critical):
+                        print "OpenStack Glance Critical! Glance Image name %s retrieval successfull but time taken was longer than critical time. Time taken for retrieval %s | Glance Image Retrieval Time=%s" % (args.image,round(timeElapse,3),round(timeElapse,3))
+                        sys.exit(STATUS_CRITICAL)
+        else:
+                print "OpenStack Might be OK! But the Glance Image name you have specified could not be found."
+                sys.exit(STATUS_WARNING)
+	
+		
 
 if __name__ == '__main__':
         main()
