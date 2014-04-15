@@ -1,0 +1,89 @@
+#!/usr/bin/python
+"""
+**  Copyright (C) 2014  Koffi Nogbe at gmail dot com
+
+**  This program is free software: you can redistribute it and/or modify
+**  it under the terms of the GNU General Public License as published by
+**  the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+
+**  This program is distributed in the hope that it will be useful,
+**  but WITHOUT ANY WARRANTY; without even the implied warranty of
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**  GNU General Public License for more details.
+
+**  You should have received a copy of the GNU General Public License
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+**  ***********************************
+**  This program allow you to monitor openstack keystone service
+**  This is a content base monitor as oppose to just port check
+**  It pull user from keystone database and poll the time it takes to 
+**  to retrieve the user. It use a config file openrc.cfg
+**  Syntax:
+**  check_keystone -C/--config [config file] -u/--user [user to pull] -w/--warning [warning timeout] -c/--critical [ critical timeout ]
+
+"""
+import sys
+import time
+import argparse
+import keystoneclient.v2_0.client as client
+from nagioslib.nagioslib import *
+
+STATUS_OK = 0
+STATUS_WARNING = 1
+STATUS_CRITICAL = 2
+STATUS_UNKNOWN = 3
+
+defaultCFG = 'openrc.cfg'
+
+def findUser(userslists,user):
+	"""Take in argument *.users.lists() and the user that we are looking for
+	"""
+	for users in userslists:
+		if users.name.rstrip().lstrip() == user.rstrip().lstrip():
+			return True
+	return False
+
+def main():
+	parser = argparse.ArgumentParser(description="check_keystone nagios plugin for OpenStack Keystone")
+	parser.add_argument("-C","--config", help="Openstack rc configuration file - default is openrc.cfg")
+	parser.add_argument("-u","--user", help="OpenStack user to monitor", required=True)
+	parser.add_argument("-w","--warning", help="Warning time to retrieve the user", required=True)
+	parser.add_argument("-c","--critical", help="Critical time to retrieve the user", required=True)
+
+	args = parser.parse_args()
+
+	if args.config:
+		configFile = args.config
+	else:
+		configFile = defaultCFG
+	
+	cred = credential(configFile)
+	startTime = time.time()
+	try:
+		ks = client.Client(**cred.getKeystone())
+	except:
+		print "Unable to connect to OpenStack API endpoint."
+		sys.exit(STATUS_CRITICAL)
+	
+	find = findUser(ks.users.list(),args.user)
+	endTime = time.time()
+	timeElapse = endTime - startTime
+	#print find
+	if find:
+		if timeElapse < float(args.warning):
+			print "OpenStack Keystone OK! User %s retrieval successfull. Time taken for retrieval %s | User Retrieval Time=%s" % (args.user,round(timeElapse,3),round(timeElapse,3))
+			sys.exit(STATUS_OK)
+		elif (timeElapse >= float(args.warning)) and (timeElapse < float(args.critical)):
+			print "OpenStack Keystone Warning! User %s retrieval successfull but time taken was longer. Time taken for retrieval %s | User Retrieval Time=%s" % (args.user,round(timeElapse,3),round(timeElapse,3))
+			sys.exit(STATUS_WARNING)
+		elif timeElapse >= float(args.critical):
+			print "OpenStack Keystone Critical! User %s retrieval successfull but time taken was longer than critical time. Time taken for retrieval %s | User Retrieval Time=%s" % (args.user,round(timeElapse,3),round(timeElapse,3))
+			sys.exit(STATUS_CRITICAL)
+	else:
+		print "OpenStack Might be OK! But the user you have specified could not be found."
+		sys.exit(STATUS_WARNING)
+
+if __name__ == '__main__':
+	main()
