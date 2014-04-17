@@ -58,3 +58,11 @@ class credential:
 		cred['auth_url'] = self.__retrieveCred__()[3]
                 return cred
 
+	def getAuth(self):
+                cred = {}
+                cred['username'] = self.__retrieveCred__()[0]
+                cred['password'] = self.__retrieveCred__()[1]
+                cred['project_id'] = self.__retrieveCred__()[2]
+                cred['auth_url'] = self.__retrieveCred__()[3]
+                return cred
+
