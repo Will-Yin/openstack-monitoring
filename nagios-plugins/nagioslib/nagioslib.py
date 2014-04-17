@@ -39,7 +39,8 @@ class credential:
 		password = cfg.get("credential","OS_PASSWORD")
 		url = cfg.get("credential","OS_AUTH_URL")
 		tenant = cfg.get("credential","OS_TENANT_NAME")
-		return username,password,tenant,url
+		tenant_id = cfg.get("credential","OS_TENANT_ID")
+		return username,password,tenant,url,tenant_id
 
 	def getKeystone(self):
 		cred = {}
@@ -48,3 +49,12 @@ class credential:
 		cred['auth_url'] = self.__retrieveCred__()[3]
 		cred['tenant_name'] = self.__retrieveCred__()[2]
 		return cred
+
+	def getCinder(self):
+                cred = {}
+                cred['username'] = self.__retrieveCred__()[0]
+                cred['password'] = self.__retrieveCred__()[1]
+                cred['tenant_name'] = self.__retrieveCred__()[2]
+		cred['auth_url'] = self.__retrieveCred__()[3]
+                return cred
+

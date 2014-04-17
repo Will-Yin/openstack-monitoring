@@ -16,19 +16,18 @@
 **  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 **  ***********************************
-**  This program allow you to monitor openstack keystone service
+**  This program allow you to monitor openstack cinder service
 **  This is a content base monitor as oppose to just port check
-**  It pull user from keystone database and poll the time it takes to
-**  to retrieve the user. It use a config file openrc.cfg
+**  It create a 1mb image and delete it and poll the time it takes to
+**  to create/delete. It use a config file openrc.cfg
 **  Syntax:
-**  check_glance -C/--config [config file] -/--image [image to pull] -w/--warning [warning timeout] -c/--critical [ critical timeout ]
+**  check_cinder -C/--config [config file] -v/--volume [volume to create] -w/--warning [warning timeout] -c/--critical [ critical timeout ]
 
 """
 import sys
 import time
 import argparse
-import keystoneclient.v2_0.client as kclient
-import cinderclient.v2.client as cclient
+from cinderclient import client
 from nagioslib.nagioslib import *
 
 STATUS_OK = 0
@@ -38,12 +37,41 @@ STATUS_UNKNOWN = 3
 
 defaultCFG = 'openrc.cfg'
 
-def findImage(imageLists,image):
-        """Find a specific image name from the image metadata
+def createVolume(cinder,volName):
+	try:
+		vol = cinder.volumes.create(display_name=volName,size=1)
+	except:
+		sys.exit(STATUS_CRITICAL)
+		print "Unable to create volume."
+	return vol
+
+def delVolume(volLists,volID):
+	volume = findVolume(volLists,volID)
+	if volume:
+		try:
+			volume.delete
+        	except:
+                	sys.exit(STATUS_CRITICAL)
+                	print "Unable to create volume."
+	else:
+                        sys.exit(STATUS_CRITICAL)
+                        print "Unable to find volume. Volume %s will not be deleted" % (volID)
+
+def delVolume(volume):
+        try:
+                volume.delete
+        except:
+                sys.exit(STATUS_CRITICAL)
+                print "Unable to delete volume."
+
+
+def findVolume(volLists,volId):
+        """Find a specific volume from volume list
         """
-        for ima in imageLists:
-                if ima.name == image:
-                        return True
+        for vol in volLists:
+		if vol.id == volId:
+                	return vol
+		
 
 
 def main():
@@ -63,14 +91,27 @@ def main():
         cred = credential(configFile)
         startTime = time.time()
         try:
-                ks = kclient.Client(**cred.getKeystone())
-                cin_endpt = ks.service_catalog.url_for(service_type='cinder', endpoint_type='publicURL')
-                cin = cclient.Client(cin_endpt,token=ks.auth_token)
+                cin = client.Client('1',cred.getCinder()['username'],cred.getCinder()['password'],cred.getCinder()['tenant_name'],cred.getCinder()['auth_url'])
 
         except:
                 print "Unable to connect to OpenStack API endpoint."
                 sys.exit(STATUS_CRITICAL)
-
+	#Create a 1mg volume
+	volume = createVolume(cin,args.volume)
+	#Delete volume
+	delVolume(volume)
+	endTime = time.time()
+	timeElapse = endTime - startTime
+	if timeElapse < float(args.warning):
+		print "OpenStack Cinder OK! Cinder Volune %s retrieval successfull. Time taken for volume create/delete %s | Cinder Volume Operation Time=%s" % (args.volume,round(timeElapse,3),round(timeElapse,3))
+		sys.exit(STATUS_OK)
+	elif (timeElapse >= float(args.warning)) and (timeElapse < float(args.critical)):
+		print "OpenStack Cinder Warning! Cinder Volume %s retrieval successfull but time taken was longer. Time taken for create/delete %s | Cinder Volume Operation Time=%s" % (args.volume,round(timeElapse,3),round(timeElapse,3))
+		sys.exit(STATUS_WARNING)
+	elif timeElapse >= float(args.critical):
+		print "OpenStack Cinder Critical! Cinder Volume %s create/delete successfull but time taken was longer than critical time. Time taken for create/delete %s | Cinder Volume Operation Time=%s" % (args.volume,round(timeElapse,3),round(timeElapse,3))
+		sys.exit(STATUS_CRITICAL)
+	
 if __name__ == '__main__':
         main()
 
